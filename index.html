@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามความก้าวหน้าโปรเจกต์นักศึกษา (Project Progress Tracker)</title>
+  <!-- Google Fonts: Prompt & Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- SheetJS (xlsx) for Excel Export & Import -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+            sarabun: ['Sarabun', 'sans-serif']
+          },
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+      background-color: #f8fafc;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      body {
+        background-color: white !important;
+      }
+      .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
+        box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-800 text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-4">
+          <div class="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner">
+            <i class="fa-solid fa-graduation-cap text-2xl text-yellow-300"></i>
+          </div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+              ระบบติดตามความก้าวหน้าโปรเจกต์
+              <span class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-blue-500/40 border border-blue-300/30 text-blue-100 hidden sm:inline-block">5 Milestones</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-blue-100/80 font-light">Student Project Progress Tracker (ครั้งที่ 1 - 5)</p>
+          </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2 sm:gap-3 no-print">
+          <button onclick="openAddStudentModal()" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2.5 rounded-xl transition duration-150 shadow-md hover:shadow-lg active:scale-95 text-sm">
+            <i class="fa-solid fa-user-plus"></i>
+            <span class="hidden sm:inline">เพิ่มนักศึกษา</span>
+          </button>
+          
+          <button onclick="exportToExcel()" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium px-3.5 py-2.5 rounded-xl transition duration-150 text-sm" title="ส่งออกข้อมูลเป็น Excel">
+            <i class="fa-solid fa-file-excel text-emerald-300"></i>
+            <span class="hidden md:inline">Export Excel</span>
+          </button>
+
+          <button onclick="window.print()" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium px-3.5 py-2.5 rounded-xl transition duration-150 text-sm" title="พิมพ์รายงาน">
+            <i class="fa-solid fa-print text-blue-200"></i>
+            <span class="hidden md:inline">พิมพ์รายงาน</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+    <!-- STATS DASHBOARD -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 no-print">
+      <!-- Total Students -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">นักศึกษาทั้งหมด</p>
+          <h3 id="statTotal" class="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1">คนในระบบ</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-users"></i>
+        </div>
+      </div>
+
+      <!-- Completed (100%) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">ผ่านครบ 5 ครั้ง</p>
+          <h3 id="statCompleted" class="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1">พร้อมสอบจบ</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+      </div>
+
+      <!-- In Progress -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-indigo-600">กำลังดำเนินการ</p>
+          <h3 id="statInProgress" class="text-2xl sm:text-3xl font-bold text-indigo-600 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1">ผ่านบางส่วน</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-spinner"></i>
+        </div>
+      </div>
+
+      <!-- Needs Revision / Warning -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-rose-600">ต้องแก้ไข / ล่าช้า</p>
+          <h3 id="statNeedsRevision" class="text-2xl sm:text-3xl font-bold text-rose-600 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1">ต้องการติดตาม</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- MILESTONE LEGEND & GUIDE -->
+    <section class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-md no-print">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-semibold flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-yellow-400"></i>
+            เกณฑ์การติดตามความก้าวหน้า 5 ครั้ง
+          </h2>
+          <p class="text-xs text-slate-300 mt-1">คลิกที่ปุ่ม <span class="bg-indigo-600/80 px-2 py-0.5 rounded text-white font-medium text-[11px]"><i class="fa-solid fa-pen-to-square"></i> ตรวจติดตาม</span> ในแต่ละคน เพื่อบันทึกสถานะ ให้คะแนน และใส่ข้อเสนอแนะ</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ผ่านเรียบร้อย
+          </span>
+          <span class="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> รอตรวจ / ส่งแล้ว
+          </span>
+          <span class="inline-flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span> ต้องแก้ไข
+          </span>
+          <span class="inline-flex items-center gap-1.5 bg-slate-700/60 text-slate-300 border border-slate-600 px-3 py-1.5 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span> ยังไม่ส่ง
+          </span>
+        </div>
+      </div>
+      
+      <!-- Milestone Stages Badges -->
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-4 pt-4 border-t border-indigo-800/60 text-xs">
+        <div class="bg-white/5 rounded-lg p-2.5 border border-white/10">
+          <span class="font-bold text-yellow-300">ครั้งที่ 1</span>
+          <p class="text-slate-300 text-[11px] mt-0.5">เสนอหัวข้อและขอบเขต</p>
+        </div>
+        <div class="bg-white/5 rounded-lg p-2.5 border border-white/10">
+          <span class="font-bold text-yellow-300">ครั้งที่ 2</span>
+          <p class="text-slate-300 text-[11px] mt-0.5">ทฤษฎีและออกแบบระบบ</p>
+        </div>
+        <div class="bg-white/5 rounded-lg p-2.5 border border-white/10">
+          <span class="font-bold text-yellow-300">ครั้งที่ 3</span>
+          <p class="text-slate-300 text-[11px] mt-0.5">พัฒนาระบบ (50%)</p>
+        </div>
+        <div class="bg-white/5 rounded-lg p-2.5 border border-white/10">
+          <span class="font-bold text-yellow-300">ครั้งที่ 4</span>
+          <p class="text-slate-300 text-[11px] mt-0.5">ทดสอบและผลดำเนินงาน</p>
+        </div>
+        <div class="bg-white/5 rounded-lg p-2.5 border border-white/10">
+          <span class="font-bold text-yellow-300">ครั้งที่ 5</span>
+          <p class="text-slate-300 text-[11px] mt-0.5">รูปเล่มและสอบจบ</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH & FILTER TOOLBAR -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
+      <!-- Search Input -->
+      <div class="relative w-full md:w-80">
+        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </span>
+        <input type="text" id="searchInput" oninput="filterStudents()" placeholder="ค้นหารหัสนักศึกษา, ชื่อ-สกุล, โครงงาน..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition duration-150">
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <!-- Filter Status -->
+        <select id="filterStatus" onchange="filterStudents()" class="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="all">สถานะทั้งหมด</option>
+          <option value="completed">ผ่านครบ 5 ครั้ง (100%)</option>
+          <option value="in_progress">กำลังดำเนินการ (20-80%)</option>
+          <option value="needs_revision">มีรายการต้องแก้ไข</option>
+          <option value="not_started">ยังไม่เริ่ม (0%)</option>
+        </select>
+
+        <!-- View Toggle (Table / Card) -->
+        <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button id="viewCardBtn" onclick="switchView('card')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-blue-600 transition bg-white shadow-xs">
+            <i class="fa-solid fa-grip mr-1"></i> การ์ด
+          </button>
+          <button id="viewTableBtn" onclick="switchView('table')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-blue-600 transition">
+            <i class="fa-solid fa-list mr-1"></i> ตาราง
+          </button>
+        </div>
+
+        <!-- Sample Data / Clear Data Menu -->
+        <div class="relative group">
+          <button class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 hidden group-hover:block z-20">
+            <button onclick="loadSampleData()" class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> โหลดข้อมูลตัวอย่าง
+            </button>
+            <button onclick="clearAllData()" class="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+              <i class="fa-solid fa-trash-can"></i> ล้างข้อมูลทั้งหมด
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENTS LIST SECTION -->
+    <section>
+      <!-- CARDS VIEW CONTAINER -->
+      <div id="cardsView" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Dynamic Cards Injected Here -->
+      </div>
+
+      <!-- TABLE VIEW CONTAINER -->
+      <div id="tableView" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-xs uppercase tracking-wider">
+                <th class="py-4 px-4">รหัสนักศึกษา</th>
+                <th class="py-4 px-4">ชื่อ-สกุล / โครงงาน</th>
+                <th class="py-4 px-3 text-center">ครั้งที่ 1</th>
+                <th class="py-4 px-3 text-center">ครั้งที่ 2</th>
+                <th class="py-4 px-3 text-center">ครั้งที่ 3</th>
+                <th class="py-4 px-3 text-center">ครั้งที่ 4</th>
+                <th class="py-4 px-3 text-center">ครั้งที่ 5</th>
+                <th class="py-4 px-4 text-center">ความก้าวหน้า</th>
+                <th class="py-4 px-4 text-right no-print">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-slate-100 font-sarabun">
+              <!-- Dynamic Rows Injected Here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 p-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-2xl">
+          <i class="fa-solid fa-folder-open"></i>
+        </div>
+        <h3 class="text-base font-semibold text-slate-700">ไม่พบข้อมูลนักศึกษา</h3>
+        <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">ยังไม่มีข้อมูลนักศึกษาในระบบ หรือไม่ตรงกับเงื่อนไขการค้นหา คุณสามารถกดปุ่ม "เพิ่มนักศึกษา" หรือ "โหลดข้อมูลตัวอย่าง" ได้ค่ะ</p>
+        <div class="mt-5 flex justify-center gap-3">
+          <button onclick="openAddStudentModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-xl transition">
+            <i class="fa-solid fa-plus mr-1"></i> เพิ่มนักศึกษาใหม่
+          </button>
+          <button onclick="loadSampleData()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-4 py-2 rounded-xl transition">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> โหลดข้อมูลตัวอย่าง
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 mt-auto py-6 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+      ระบบติดตามความก้าวหน้าโครงงานนักศึกษา (5 Milestones) &bull; ข้อมูลถูกบันทึกอัตโนมัติบนเว็บเบราว์เซอร์
+    </div>
+  </footer>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ADD / EDIT STUDENT INFO                           -->
+  <!-- ======================================================== -->
+  <div id="studentModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex justify-between items-center">
+        <h3 id="studentModalTitle" class="font-bold text-base flex items-center gap-2">
+          <i class="fa-solid fa-user-pen"></i> เพิ่มข้อมูลนักศึกษา
+        </h3>
+        <button onclick="closeStudentModal()" class="text-white/80 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="studentForm" onsubmit="saveStudent(event)" class="p-6 space-y-4 text-sm">
+        <input type="hidden" id="editStudentId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสนักศึกษา <span class="text-rose-500">*</span></label>
+          <input type="text" id="inputStudentCode" required placeholder="เช่น 65011234567" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อ - นามสกุล <span class="text-rose-500">*</span></label>
+          <input type="text" id="inputStudentName" required placeholder="เช่น นายสมชาย ใจดี" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อโครงงาน / โปรเจกต์ <span class="text-rose-500">*</span></label>
+          <textarea id="inputProjectTitle" required rows="2" placeholder="เช่น ระบบจัดการคลังสินค้าอัจฉริยะด้วย IoT" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">อาจารย์ที่ปรึกษา</label>
+            <input type="text" id="inputAdvisor" placeholder="เช่น ผศ.ดร. นภาพร" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">กลุ่มเรียน / สาขา</label>
+            <input type="text" id="inputDepartment" placeholder="เช่น วิทยาการคอมพิวเตอร์" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeStudentModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-medium transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition shadow-md">
+            บันทึกข้อมูล
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: TRACKING / MILESTONES (1-5) DETAIL EVALUATION     -->
+  <!-- ======================================================== -->
+  <div id="trackingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 hidden">
+    <div class="bg-white rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-700 px-6 py-4 text-white flex justify-between items-center">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="bg-white/20 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium" id="modalStudentCode">65011234</span>
+            <h3 class="font-bold text-base" id="modalStudentName">ชื่อ-สกุล</h3>
+          </div>
+          <p class="text-xs text-indigo-100/90 mt-0.5 line-clamp-1" id="modalProjectTitle">ชื่อโครงงาน</p>
+        </div>
+        <button onclick="closeTrackingModal()" class="text-white/80 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
+        
+        <!-- Overall Progress in Modal -->
+        <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="w-full sm:w-auto">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">ความก้าวหน้ารวมของโปรเจกต์</span>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="modalProgressText" class="text-2xl font-bold text-indigo-600">0%</span>
+              <span class="text-xs text-slate-500">(คำนวณจากสถานะการผ่าน 5 ครั้ง)</span>
+            </div>
+          </div>
+          <div class="w-full sm:w-64 bg-slate-200 h-3.5 rounded-full overflow-hidden">
+            <div id="modalProgressBar" class="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Milestone Tabs (1 to 5) -->
+        <div class="flex border-b border-slate-200 space-x-1 sm:space-x-2 overflow-x-auto pb-1">
+          <button type="button" onclick="selectMilestoneTab(1)" id="tabBtn1" class="milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50 flex items-center gap-1.5 whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">1</span> เสนอหัวข้อ
+          </button>
+          <button type="button" onclick="selectMilestoneTab(2)" id="tabBtn2" class="milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[10px]">2</span> ออกแบบระบบ
+          </button>
+          <button type="button" onclick="selectMilestoneTab(3)" id="tabBtn3" class="milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[10px]">3</span> พัฒนา 50%
+          </button>
+          <button type="button" onclick="selectMilestoneTab(4)" id="tabBtn4" class="milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[10px]">4</span> ทดสอบระบบ
+          </button>
+          <button type="button" onclick="selectMilestoneTab(5)" id="tabBtn5" class="milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[10px]">5</span> สอบจบ/เล่ม
+          </button>
+        </div>
+
+        <!-- Form for Current Milestone Tab -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
+            <div>
+              <h4 id="currentMilestoneTitle" class="text-sm font-bold text-indigo-900">การติดตามครั้งที่ 1: เสนอหัวข้อและขอบเขตโครงงาน</h4>
+              <p id="currentMilestoneDesc" class="text-xs text-indigo-700 mt-0.5">การตรวจสอบความเหมาะสมของหัวข้อ ความเป็นไปได้ และขอบเขตการดำเนินงาน</p>
+            </div>
+            <span id="currentMilestoneStatusBadge" class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">ยังไม่ส่ง</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Status Selector -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">สถานะการประเมิน <span class="text-rose-500">*</span></label>
+              <select id="msStatus" onchange="updateCurrentMilestoneTemp()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none">
+                <option value="not_submitted">⚪ ยังไม่ส่งงาน (Not Submitted)</option>
+                <option value="pending">🟡 รอตรวจ / ส่งแล้ว (Pending / Submitted)</option>
+                <option value="needs_revision">🔴 ต้องแก้ไข (Needs Revision)</option>
+                <option value="passed">🟢 ผ่านเรียบร้อย (Passed)</option>
+              </select>
+            </div>
+
+            <!-- Date -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">วันที่ส่ง / วันที่ตรวจ</label>
+              <input type="date" id="msDate" onchange="updateCurrentMilestoneTemp()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Score & Link -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">คะแนนประเมิน (ถ้ามี)</label>
+              <input type="number" min="0" max="100" id="msScore" onchange="updateCurrentMilestoneTemp()" placeholder="เช่น 85 (คะแนนเต็ม 100)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">ลิงก์ส่งงาน / ไฟล์แนบ (URL)</label>
+              <input type="url" id="msLink" onchange="updateCurrentMilestoneTemp()" placeholder="https://..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Feedback & Comments -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">ข้อเสนอแนะ / สิ่งที่ต้องปรับปรุงแก้ไขจากอาจารย์</label>
+            <textarea id="msFeedback" rows="3" oninput="updateCurrentMilestoneTemp()" placeholder="ระบุความคิดเห็น คำแนะนำ หรือข้อแก้ไขสำหรับการติดตามครั้งนี้..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none font-sarabun"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+        <div class="text-xs text-slate-400">
+          <i class="fa-solid fa-cloud-arrow-up mr-1"></i> บันทึกข้อมูลอัตโนมัติ
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeTrackingModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition shadow-md">
+            เสร็จสิ้น
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Milestone Definitions
+    const MILESTONES_DEF = [
+      { id: 1, name: "ครั้งที่ 1", title: "เสนอหัวข้อและขอบเขตโครงงาน", desc: "การตรวจสอบความเหมาะสมของหัวข้อ ความเป็นไปได้ และขอบเขตการดำเนินงาน" },
+      { id: 2, name: "ครั้งที่ 2", title: "การศึกษาทฤษฎีและออกแบบระบบ", desc: "ทบทวนวรรณกรรมที่เกี่ยวข้อง ออกแบบสถาปัตยกรรมระบบ ฐานข้อมูล และ UI/UX" },
+      { id: 3, name: "ครั้งที่ 3", title: "ความก้าวหน้าการพัฒนาระบบ (50%)", desc: "ติดตามการเขียนโปรแกรม/ประกอบชิ้นงาน ฟังก์ชันหลักเริ่มทำงานได้" },
+      { id: 4, name: "ครั้งที่ 4", title: "การทดสอบระบบและผลการดำเนินงาน", desc: "การทดสอบประสิทธิภาพ การแก้ Bug และสรุปผลการทดลอง" },
+      { id: 5, name: "ครั้งที่ 5", title: "รูปเล่มรายงานและเตรียมสอบจบ", desc: "ความสมบูรณ์ของเอกสารรูปเล่ม สื่อนำเสนอ และการเตรียมความพร้อมสอบจบ" }
+    ];
+
+    // Status config
+    const STATUS_MAP = {
+      not_submitted: { text: "ยังไม่ส่ง", color: "bg-slate-100 text-slate-600 border-slate-300", icon: "fa-regular fa-circle" },
+      pending: { text: "รอตรวจ", color: "bg-amber-100 text-amber-800 border-amber-300", icon: "fa-regular fa-clock" },
+      needs_revision: { text: "ต้องแก้ไข", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-solid fa-triangle-exclamation" },
+      passed: { text: "ผ่าน", color: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "fa-solid fa-circle-check" }
+    };
+
+    // State
+    let students = [];
+    let currentViewingStudentId = null;
+    let activeMilestoneTab = 1;
+    let currentViewMode = 'card';
+
+    // Local Storage Key
+    const STORAGE_KEY = 'smile_project_tracker_data_v1';
+
+    // Initialize App
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      if (students.length === 0) {
+        loadSampleData(false); // Initial sample if clean
+      } else {
+        renderAll();
+      }
+    });
+
+    // Load from LocalStorage
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          students = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.error("Failed to load local data", e);
+        students = [];
+      }
+    }
+
+    // Save to LocalStorage
+    function saveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+      } catch (e) {
+        console.error("Failed to save data", e);
+      }
+    }
+
+    // Compute student's overall progress (0 - 100%)
+    function calculateProgress(student) {
+      if (!student.milestones) return 0;
+      let passedCount = 0;
+      for (let i = 1; i <= 5; i++) {
+        const ms = student.milestones[i];
+        if (ms && ms.status === 'passed') {
+          passedCount += 1;
+        }
+      }
+      return Math.round((passedCount / 5) * 100);
+    }
+
+    // Check if student has revision status
+    function hasNeedsRevision(student) {
+      if (!student.milestones) return false;
+      for (let i = 1; i <= 5; i++) {
+        if (student.milestones[i] && student.milestones[i].status === 'needs_revision') {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Render Stats
+    function renderStats() {
+      const total = students.length;
+      let completed = 0;
+      let inProgress = 0;
+      let needsRev = 0;
+
+      students.forEach(s => {
+        const prog = calculateProgress(s);
+        if (prog === 100) completed++;
+        else if (prog > 0) inProgress++;
+        
+        if (hasNeedsRevision(s)) needsRev++;
+      });
+
+      document.getElementById('statTotal').innerText = total;
+      document.getElementById('statCompleted').innerText = completed;
+      document.getElementById('statInProgress').innerText = inProgress;
+      document.getElementById('statNeedsRevision').innerText = needsRev;
+    }
+
+    // Filter & Render
+    function filterStudents() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const statusFilter = document.getElementById('filterStatus').value;
+
+      const filtered = students.filter(s => {
+        const matchesQuery = !query || 
+          (s.code && s.code.toLowerCase().includes(query)) ||
+          (s.name && s.name.toLowerCase().includes(query)) ||
+          (s.projectTitle && s.projectTitle.toLowerCase().includes(query)) ||
+          (s.advisor && s.advisor.toLowerCase().includes(query));
+
+        if (!matchesQuery) return false;
+
+        const progress = calculateProgress(s);
+        if (statusFilter === 'completed') return progress === 100;
+        if (statusFilter === 'in_progress') return progress > 0 && progress < 100;
+        if (statusFilter === 'needs_revision') return hasNeedsRevision(s);
+        if (statusFilter === 'not_started') return progress === 0;
+
+        return true;
+      });
+
+      renderList(filtered);
+    }
+
+    function renderAll() {
+      renderStats();
+      filterStudents();
+    }
+
+    // Switch View Mode (Card vs Table)
+    function switchView(mode) {
+      currentViewMode = mode;
+      const cardsView = document.getElementById('cardsView');
+      const tableView = document.getElementById('tableView');
+      const viewCardBtn = document.getElementById('viewCardBtn');
+      const viewTableBtn = document.getElementById('viewTableBtn');
+
+      if (mode === 'card') {
+        cardsView.classList.remove('hidden');
+        tableView.classList.add('hidden');
+        viewCardBtn.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-blue-600 transition bg-white shadow-xs";
+        viewTableBtn.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-blue-600 transition";
+      } else {
+        cardsView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        viewCardBtn.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-blue-600 transition";
+        viewTableBtn.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-blue-600 transition bg-white shadow-xs";
+      }
+      filterStudents();
+    }
+
+    // Render Cards & Table
+    function renderList(list) {
+      const cardsContainer = document.getElementById('cardsView');
+      const tableBody = document.getElementById('tableBody');
+      const emptyState = document.getElementById('emptyState');
+
+      if (list.length === 0) {
+        cardsContainer.innerHTML = '';
+        tableBody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      // 1. Render Cards
+      cardsContainer.innerHTML = list.map(s => {
+        const prog = calculateProgress(s);
+        return `
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition duration-200 flex flex-col justify-between">
+            <div>
+              <!-- Top Row: Student Code & Actions -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-mono font-bold border border-blue-100">${escapeHtml(s.code)}</span>
+                  ${s.department ? `<span class="text-[11px] text-slate-400">${escapeHtml(s.department)}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-1 no-print">
+                  <button onclick="editStudent('${s.id}')" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition flex items-center justify-center text-xs" title="แก้ไขข้อมูลนักศึกษา">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                  <button onclick="deleteStudent('${s.id}')" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition flex items-center justify-center text-xs" title="ลบข้อมูล">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Name & Project -->
+              <div class="mt-3">
+                <h3 class="text-base font-bold text-slate-800">${escapeHtml(s.name)}</h3>
+                <p class="text-xs text-slate-600 mt-1 line-clamp-2 font-sarabun font-medium"><i class="fa-solid fa-book-bookmark text-indigo-500 mr-1 text-[11px]"></i>${escapeHtml(s.projectTitle)}</p>
+                ${s.advisor ? `<p class="text-[11px] text-slate-400 mt-1">ที่ปรึกษา: ${escapeHtml(s.advisor)}</p>` : ''}
+              </div>
+
+              <!-- Progress Bar -->
+              <div class="mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div class="flex items-center justify-between text-xs mb-1.5">
+                  <span class="font-medium text-slate-500">ความก้าวหน้ารวม</span>
+                  <span class="font-bold ${prog === 100 ? 'text-emerald-600' : 'text-blue-600'}">${prog}%</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div class="h-full ${prog === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'} transition-all duration-300" style="width: ${prog}%"></div>
+                </div>
+              </div>
+
+              <!-- 5 Milestones Badges -->
+              <div class="grid grid-cols-5 gap-1.5 mt-4 text-center">
+                ${[1,2,3,4,5].map(mId => {
+                  const ms = s.milestones ? s.milestones[mId] : null;
+                  const st = ms ? (STATUS_MAP[ms.status] || STATUS_MAP.not_submitted) : STATUS_MAP.not_submitted;
+                  return `
+                    <div class="p-1.5 rounded-lg border text-[10px] ${st.color}" title="${MILESTONES_DEF[mId-1].title}: ${st.text}">
+                      <div class="font-bold">ครั้งที่ ${mId}</div>
+                      <div class="mt-0.5 truncate flex items-center justify-center gap-1">
+                        <i class="${st.icon} text-[9px]"></i>
+                        <span class="hidden sm:inline">${st.text}</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Card Bottom Button -->
+            <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between no-print">
+              <span class="text-[11px] text-slate-400">
+                ${getLastUpdatedText(s)}
+              </span>
+              <button onclick="openTrackingModal('${s.id}')" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-3.5 py-1.5 rounded-xl transition text-xs shadow-xs">
+                <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+                <span>ตรวจติดตาม (1-5)</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 2. Render Table Rows
+      tableBody.innerHTML = list.map(s => {
+        const prog = calculateProgress(s);
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-mono font-bold text-xs text-blue-700">${escapeHtml(s.code)}</td>
+            <td class="py-3.5 px-4">
+              <div class="font-bold text-slate-800 text-sm font-sans">${escapeHtml(s.name)}</div>
+              <div class="text-xs text-slate-500 truncate max-w-xs" title="${escapeHtml(s.projectTitle)}">${escapeHtml(s.projectTitle)}</div>
+            </td>
+            ${[1,2,3,4,5].map(mId => {
+              const ms = s.milestones ? s.milestones[mId] : null;
+              const st = ms ? (STATUS_MAP[ms.status] || STATUS_MAP.not_submitted) : STATUS_MAP.not_submitted;
+              return `
+                <td class="py-3.5 px-2 text-center">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] border ${st.color}">
+                    <i class="${st.icon} text-[10px]"></i>
+                    ${st.text}
+                  </span>
+                </td>
+              `;
+            }).join('')}
+            <td class="py-3.5 px-4 text-center">
+              <span class="font-bold text-xs ${prog === 100 ? 'text-emerald-600' : 'text-indigo-600'}">${prog}%</span>
+            </td>
+            <td class="py-3.5 px-4 text-right space-x-1 no-print">
+              <button onclick="openTrackingModal('${s.id}')" class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-sans font-medium transition" title="ตรวจติดตาม">
+                <i class="fa-solid fa-pen-to-square"></i> ตรวจ
+              </button>
+              <button onclick="editStudent('${s.id}')" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg transition" title="แก้ไข">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+              <button onclick="deleteStudent('${s.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition" title="ลบ">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function getLastUpdatedText(s) {
+      if (!s.milestones) return 'ยังไม่มีประวัติ';
+      let latestDate = null;
+      for (let i = 1; i <= 5; i++) {
+        if (s.milestones[i] && s.milestones[i].date) {
+          if (!latestDate || s.milestones[i].date > latestDate) {
+            latestDate = s.milestones[i].date;
+          }
+        }
+      }
+      return latestDate ? `อัปเดตล่าสุด: ${latestDate}` : 'ยังไม่มีประวัติ';
+    }
+
+    // ==========================================
+    // ADD / EDIT STUDENT MODAL
+    // ==========================================
+    function openAddStudentModal() {
+      document.getElementById('studentModalTitle').innerHTML = '<i class="fa-solid fa-user-plus mr-1"></i> เพิ่มข้อมูลนักศึกษา';
+      document.getElementById('editStudentId').value = '';
+      document.getElementById('studentForm').reset();
+      document.getElementById('studentModal').classList.remove('hidden');
+    }
+
+    function editStudent(id) {
+      const s = students.find(item => item.id === id);
+      if (!s) return;
+
+      document.getElementById('studentModalTitle').innerHTML = '<i class="fa-solid fa-user-pen mr-1"></i> แก้ไขข้อมูลนักศึกษา';
+      document.getElementById('editStudentId').value = s.id;
+      document.getElementById('inputStudentCode').value = s.code || '';
+      document.getElementById('inputStudentName').value = s.name || '';
+      document.getElementById('inputProjectTitle').value = s.projectTitle || '';
+      document.getElementById('inputAdvisor').value = s.advisor || '';
+      document.getElementById('inputDepartment').value = s.department || '';
+
+      document.getElementById('studentModal').classList.remove('hidden');
+    }
+
+    function closeStudentModal() {
+      document.getElementById('studentModal').classList.add('hidden');
+    }
+
+    function saveStudent(e) {
+      e.preventDefault();
+      const editId = document.getElementById('editStudentId').value;
+      const code = document.getElementById('inputStudentCode').value.trim();
+      const name = document.getElementById('inputStudentName').value.trim();
+      const projectTitle = document.getElementById('inputProjectTitle').value.trim();
+      const advisor = document.getElementById('inputAdvisor').value.trim();
+      const department = document.getElementById('inputDepartment').value.trim();
+
+      if (editId) {
+        // Update existing
+        const idx = students.findIndex(s => s.id === editId);
+        if (idx !== -1) {
+          students[idx].code = code;
+          students[idx].name = name;
+          students[idx].projectTitle = projectTitle;
+          students[idx].advisor = advisor;
+          students[idx].department = department;
+        }
+      } else {
+        // Create new
+        const newStudent = {
+          id: 's_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          code: code,
+          name: name,
+          projectTitle: projectTitle,
+          advisor: advisor,
+          department: department,
+          milestones: {
+            1: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            2: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            3: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            4: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            5: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' }
+          }
+        };
+        students.unshift(newStudent);
+      }
+
+      saveData();
+      closeStudentModal();
+      renderAll();
+    }
+
+    function deleteStudent(id) {
+      const s = students.find(item => item.id === id);
+      if (!s) return;
+      if (confirm(`คุณต้องการลบข้อมูลของ "${s.name}" (${s.code}) ใช่หรือไม่?`)) {
+        students = students.filter(item => item.id !== id);
+        saveData();
+        renderAll();
+      }
+    }
+
+    // ==========================================
+    // TRACKING / MILESTONES MODAL (1 - 5)
+    // ==========================================
+    function openTrackingModal(studentId) {
+      const s = students.find(item => item.id === studentId);
+      if (!s) return;
+
+      currentViewingStudentId = studentId;
+
+      // Ensure milestones obj exists
+      if (!s.milestones) {
+        s.milestones = {
+          1: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+          2: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+          3: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+          4: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+          5: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' }
+        };
+      }
+
+      document.getElementById('modalStudentCode').innerText = s.code;
+      document.getElementById('modalStudentName').innerText = s.name;
+      document.getElementById('modalProjectTitle').innerText = s.projectTitle;
+
+      updateModalProgressHeader(s);
+      selectMilestoneTab(1);
+
+      document.getElementById('trackingModal').classList.remove('hidden');
+    }
+
+    function closeTrackingModal() {
+      document.getElementById('trackingModal').classList.add('hidden');
+      currentViewingStudentId = null;
+      renderAll();
+    }
+
+    function selectMilestoneTab(mId) {
+      activeMilestoneTab = mId;
+      const s = students.find(item => item.id === currentViewingStudentId);
+      if (!s) return;
+
+      // Update tab button styles
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`tabBtn${i}`);
+        if (i === mId) {
+          btn.className = "milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50 flex items-center gap-1.5 whitespace-nowrap";
+          btn.querySelector('span').className = "w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]";
+        } else {
+          btn.className = "milestone-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-1.5 whitespace-nowrap";
+          btn.querySelector('span').className = "w-5 h-5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[10px]";
+        }
+      }
+
+      // Update milestone title and description
+      const def = MILESTONES_DEF[mId - 1];
+      document.getElementById('currentMilestoneTitle').innerText = `การติดตามครั้งที่ ${mId}: ${def.title}`;
+      document.getElementById('currentMilestoneDesc').innerText = def.desc;
+
+      // Populate form fields for active milestone
+      const msData = (s.milestones && s.milestones[mId]) || { status: 'not_submitted', date: '', score: '', feedback: '', link: '' };
+      document.getElementById('msStatus').value = msData.status || 'not_submitted';
+      document.getElementById('msDate').value = msData.date || '';
+      document.getElementById('msScore').value = msData.score || '';
+      document.getElementById('msLink').value = msData.link || '';
+      document.getElementById('msFeedback').value = msData.feedback || '';
+
+      updateMilestoneStatusBadge(msData.status);
+    }
+
+    function updateMilestoneStatusBadge(status) {
+      const st = STATUS_MAP[status] || STATUS_MAP.not_submitted;
+      const badge = document.getElementById('currentMilestoneStatusBadge');
+      badge.className = `text-xs font-medium px-2.5 py-1 rounded-full border ${st.color}`;
+      badge.innerHTML = `<i class="${st.icon} mr-1"></i> ${st.text}`;
+    }
+
+    function updateCurrentMilestoneTemp() {
+      const s = students.find(item => item.id === currentViewingStudentId);
+      if (!s) return;
+
+      if (!s.milestones) s.milestones = {};
+      
+      const newStatus = document.getElementById('msStatus').value;
+      const newDate = document.getElementById('msDate').value;
+      const newScore = document.getElementById('msScore').value;
+      const newLink = document.getElementById('msLink').value;
+      const newFeedback = document.getElementById('msFeedback').value;
+
+      s.milestones[activeMilestoneTab] = {
+        status: newStatus,
+        date: newDate,
+        score: newScore,
+        link: newLink,
+        feedback: newFeedback
+      };
+
+      updateMilestoneStatusBadge(newStatus);
+      updateModalProgressHeader(s);
+      saveData();
+    }
+
+    function updateModalProgressHeader(s) {
+      const prog = calculateProgress(s);
+      document.getElementById('modalProgressText').innerText = `${prog}%`;
+      document.getElementById('modalProgressBar').style.width = `${prog}%`;
+    }
+
+    // ==========================================
+    // EXPORT TO EXCEL
+    // ==========================================
+    function exportToExcel() {
+      if (students.length === 0) {
+        alert('ไม่มีข้อมูลสำหรับส่งออก');
+        return;
+      }
+
+      const rows = students.map((s, idx) => {
+        const row = {
+          'ลำดับ': idx + 1,
+          'รหัสนักศึกษา': s.code,
+          'ชื่อ-สกุล': s.name,
+          'ชื่อโครงงาน': s.projectTitle,
+          'อาจารย์ที่ปรึกษา': s.advisor || '',
+          'สาขาวิชา': s.department || '',
+          'ความก้าวหน้ารวม (%)': calculateProgress(s)
+        };
+
+        for (let i = 1; i <= 5; i++) {
+          const ms = s.milestones ? s.milestones[i] : null;
+          const statusText = ms ? (STATUS_MAP[ms.status]?.text || 'ยังไม่ส่ง') : 'ยังไม่ส่ง';
+          row[`ครั้งที่ ${i} (สถานะ)`] = statusText;
+          row[`ครั้งที่ ${i} (วันที่)`] = ms?.date || '';
+          row[`ครั้งที่ ${i} (คะแนน)`] = ms?.score || '';
+          row[`ครั้งที่ ${i} (ข้อเสนอแนะ)`] = ms?.feedback || '';
+        }
+
+        return row;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "ติดตามความก้าวหน้า");
+
+      // Auto column width
+      const maxCols = 30;
+      const colWidths = Array(maxCols).fill({ wch: 18 });
+      colWidths[0] = { wch: 6 };  // ลำดับ
+      colWidths[1] = { wch: 15 }; // รหัส
+      colWidths[2] = { wch: 22 }; // ชื่อ
+      colWidths[3] = { wch: 35 }; // โครงงาน
+      worksheet['!cols'] = colWidths;
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `รายงานความก้าวหน้าโครงงาน_${dateStr}.xlsx`);
+    }
+
+    // ==========================================
+    // SAMPLE DATA GENERATOR
+    // ==========================================
+    function loadSampleData(showNotice = true) {
+      students = [
+        {
+          id: 's_sample_1',
+          code: '65011234001',
+          name: 'นายกิตติศักดิ์ พัฒนกิจ',
+          projectTitle: 'ระบบตรวจจับและแจ้งเตือนอุบัติเหตุอัจฉริยะด้วย Computer Vision',
+          advisor: 'ผศ.ดร. นภาพร สุขสมบูรณ์',
+          department: 'วิทยาการคอมพิวเตอร์',
+          milestones: {
+            1: { status: 'passed', date: '2026-06-15', score: '92', feedback: 'ขอบเขตโครงงานชัดเจน อนุมัติผ่าน', link: '' },
+            2: { status: 'passed', date: '2026-07-10', score: '88', feedback: 'การออกแบบโมเดลและ Dataset สอดคล้องกับปัญหา', link: '' },
+            3: { status: 'passed', date: '2026-08-05', score: '85', feedback: 'เทรนโมเดลความแม่นยำ 87% เริ่มเชื่อมต่อ API ได้ดี', link: '' },
+            4: { status: 'passed', date: '2026-08-28', score: '90', feedback: 'ผลการทดสอบ Accuracy 91.5% ผ่านเกณฑ์', link: '' },
+            5: { status: 'passed', date: '2026-09-05', score: '95', feedback: 'รูปเล่มสมบูรณ์ พร้อมสอบป้องกันโครงงาน', link: '' }
+          }
+        },
+        {
+          id: 's_sample_2',
+          code: '65011234002',
+          name: 'นางสาวพิมพ์ชนก รัตนเดช',
+          projectTitle: 'แอปพลิเคชันแนะนำอาหารสุขภาพเฉพาะบุคคลสำหรับผู้ป่วยเบาหวาน (Wellness Diet)',
+          advisor: 'อ. วรพงษ์ จิตเที่ยง',
+          department: 'เทคโนโลยีสารสนเทศ',
+          milestones: {
+            1: { status: 'passed', date: '2026-06-20', score: '90', feedback: 'หัวข้อน่าสนใจ ตอบโจทย์เทรนด์สุขภาพ', link: '' },
+            2: { status: 'passed', date: '2026-07-18', score: '85', feedback: 'UI/UX สวยงาม ออกแบบฐานข้อมูลครบถ้วน', link: '' },
+            3: { status: 'passed', date: '2026-08-15', score: '82', feedback: 'ฟังก์ชันคำนวณแคลอรี่และเชื่อมตารางอาหารทำงานได้', link: '' },
+            4: { status: 'needs_revision', date: '2026-09-02', score: '68', feedback: 'ต้องเพิ่มการทดสอบความพึงพอใจจากกลุ่มตัวอย่างผู้ใช้จริง และแก้บั๊กหน้าสรุปผล', link: '' },
+            5: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' }
+          }
+        },
+        {
+          id: 's_sample_3',
+          code: '65011234003',
+          name: 'นายธนกร เจริญผล',
+          projectTitle: 'แพลตฟอร์มจับคู่และจัดตารางรถรับส่งนักศึกษาด้วย AI',
+          advisor: 'ผศ.ดร. นภาพร สุขสมบูรณ์',
+          department: 'วิทยาการคอมพิวเตอร์',
+          milestones: {
+            1: { status: 'passed', date: '2026-06-18', score: '88', feedback: 'หัวข้อผ่านการอนุมัติ', link: '' },
+            2: { status: 'passed', date: '2026-07-25', score: '80', feedback: 'ปรับลดขอบเขตการคำนวณ Route ตามคำแนะนำ', link: '' },
+            3: { status: 'pending', date: '2026-09-01', score: '', feedback: 'ส่งงานระบบ 50% แล้ว รออาจารย์ตรวจ', link: '' },
+            4: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            5: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' }
+          }
+        },
+        {
+          id: 's_sample_4',
+          code: '65011234004',
+          name: 'นางสาวศิริพร บุญเสริม',
+          projectTitle: 'ระบบคลังข้อสอบและวิเคราะห์ผลสัมฤทธิ์ทางการเรียนออนไลน์',
+          advisor: 'ดร. อนุชา วารินทร์',
+          department: 'คอมพิวเตอร์ศึกษา',
+          milestones: {
+            1: { status: 'passed', date: '2026-06-25', score: '85', feedback: 'ผ่านเกณฑ์', link: '' },
+            2: { status: 'needs_revision', date: '2026-08-10', score: '65', feedback: 'ให้ทบทวนสูตรความยากง่ายและการกระจายตัวของข้อสอบ (Item Analysis)', link: '' },
+            3: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            4: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' },
+            5: { status: 'not_submitted', date: '', score: '', feedback: '', link: '' }
+          }
+        }
+      ];
+
+      saveData();
+      renderAll();
+      if (showNotice) {
+        alert('โหลดข้อมูลตัวอย่างเรียบร้อยแล้วค่ะ');
+      }
+    }
+
+    function clearAllData() {
+      if (confirm('คุณต้องการล้างข้อมูลนักศึกษาทั้งหมดหรือไม่? (ไม่สามารถกู้คืนได้)')) {
+        students = [];
+        saveData();
+        renderAll();
+      }
+    }
+
+    // Helper: Escape HTML string to prevent XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
